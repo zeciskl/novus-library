@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}{{ user[1] }}'s Profile | NOVUS{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <!-- Sidebar / User Info -->
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-white border-secondary p-4 text-center h-100">
+                <div class="mb-3 position-relative d-inline-block">
+                    {% if user[3] %}
+                        <img src="{{ user[3] }}" class="rounded-circle border border-info p-1" style="width: 120px; height: 120px; object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto border border-info p-1" style="width: 120px; height: 120px; font-size: 40px;">
+                            {{ user[1][0]|upper }}
+                        </div>
+                    {% endif %}
+                    
+                    {% if user[2] == 'admin' %}
+                    <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-danger border border-dark">
+                        ADMIN
+                    </span>
+                    {% elif user[2] == 'publisher' %}
+                    <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-warning text-dark border border-dark">
+                        PUB
+                    </span>
+                    {% endif %}
+                </div>
+
+                <h3 class="mb-1">{{ user[1] }}</h3>
+                <p class="text-muted mb-3">{{ user[2]|title }}</p>
+
+                {% if user[4] == 'ultimate' %}
+                <div class="badge bg-warning text-dark mb-4 px-3 py-2">
+                    <i class="fas fa-crown me-1"></i> Ultimate Member
+                </div>
+                {% endif %}
+
+                <div class="d-grid gap-2">
+                    {% if session.get('user_id') != user[0] %}
+                        <button class="btn btn-outline-danger btn-sm" onclick="reportUser({{ user[0] }}, '{{ user[1] }}')">
+                            <i class="fas fa-flag me-2"></i>Report User
+                        </button>
+                    {% else %}
+                        <a href="{{ url_for('profile') }}" class="btn btn-outline-light btn-sm">
+                            <i class="fas fa-edit me-2"></i>Edit Profile
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content / Stats -->
+        <div class="col-md-8">
+            <!-- Stats Row -->
+            <div class="row g-3 mb-4">
+                <div class="col-sm-4">
+                    <div class="card bg-dark border-secondary p-3 text-center">
+                        <h2 class="text-info mb-0">{{ read_count }}</h2>
+                        <small class="text-muted">Books Read</small>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card bg-dark border-secondary p-3 text-center">
+                        <h2 class="text-danger mb-0">{{ fav_count }}</h2>
+                        <small class="text-muted">Favorites</small>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card bg-dark border-secondary p-3 text-center">
+                        <div class="d-flex justify-content-around text-start small">
+                            <div>
+                                <div class="text-warning">{{ watchlist_stats.get('planned', 0) }}</div> <span class="text-muted">Planned</span>
+                            </div>
+                            <div>
+                                <div class="text-success">{{ watchlist_stats.get('completed', 0) }}</div> <span class="text-muted">Done</span>
+                            </div>
+                            <div>
+                                <div class="text-info">{{ watchlist_stats.get('reading', 0) }}</div> <span class="text-muted">Reading</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <h4 class="mb-3 border-bottom border-secondary pb-2">Recent Activity</h4>
+            <div class="activity-timeline">
+                {% if recent_activity %}
+                    {% for act in recent_activity %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3 text-center" style="width: 40px;">
+                            <i class="fas {{ act.icon }} fa-lg text-secondary"></i>
+                        </div>
+                        <div>
+                            <div>
+                                <span class="fw-bold">{{ user[1] }}</span>
+                                <span class="text-muted small">{{ act.type|lower }}</span>
+                                <span class="text-info fw-bold">{{ act.title }}</span>
+                            </div>
+                            <small class="text-muted">{{ act.when }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-4">No recent activity to show.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Modal (Reused) -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title text-white">Report User</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Help us keep the community safe. Why are you reporting <strong id="reportUserName" class="text-white"></strong>?</p>
+        <form id="reportForm">
+            <input type="hidden" id="reportUserId">
+            <div class="mb-3">
+                <textarea class="form-control bg-black text-white border-secondary" id="reportReason" rows="4" placeholder="Describe the issue..." required></textarea>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger">Submit Report</button>
+            </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let reportModal;
+document.addEventListener('DOMContentLoaded', function() {
+    reportModal = new bootstrap.Modal(document.getElementById('reportModal'));
+});
+
+function reportUser(userId, username) {
+    document.getElementById('reportUserId').value = userId;
+    document.getElementById('reportUserName').textContent = username;
+    document.getElementById('reportReason').value = '';
+    reportModal.show();
+}
+
+document.getElementById('reportForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const userId = document.getElementById('reportUserId').value;
+    const reason = document.getElementById('reportReason').value;
+    
+    try {
+        const resp = await fetch('/report_user', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ reported_user_id: userId, reason: reason })
+        });
+        const data = await resp.json();
+        
+        if (data.success) {
+            alert('Report submitted. Thank you.');
+            reportModal.hide();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    } catch(e) {
+        alert('Network error. Please try again.');
+    }
+});
+</script>
+{% endblock %}

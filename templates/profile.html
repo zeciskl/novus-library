@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}Profile | NOVUS{% endblock %}
+{% block content %}
+<style>
+.active-log-content {
+  padding: 15px 0;
+}
+
+.online-time-display {
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #00d4ff;
+  margin-bottom: 10px;
+}
+
+.online-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-label {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  color: #fff;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.online-time-text {
+  font-family: 'Courier New', monospace;
+  font-size: 1.2rem;
+}
+</style>
+<div class="container py-3 profile-page">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <div class="avatar-badge" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
+          {% if avatar_url %}
+            <img src="{{ avatar_url }}" alt="{{ username }}" style="width: 100%; height: 100%; object-fit: cover;">
+          {% else %}
+            <img src="{{ url_for('static', filename='img/default-avatar.png') }}" alt="Default Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+          {% endif %}
+        </div>
+      <div>
+        <h2 class="mb-0">{{ username or 'ReaderOne' }}</h2>
+        <p class="text-muted mb-0">Welcome back 👋</p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="btn btn-neon d-flex align-items-center"
+      data-bs-toggle="modal"
+      data-bs-target="#editProfileModal"
+    >
+      <i class="fas fa-pen-to-square me-2"></i> Edit Profile
+    </button>
+  </div>
+
+  <div class="row g-4">
+    <!-- LEFT: Stats + Shelves -->
+    <div class="col-lg-8">
+      <!-- Stats -->
+      <div class="section-container mb-4">
+        <div class="section-title">Reading Stats</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">{{ count }}</div>
+            <div class="stat-label">Books Read</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ pages_read or '—' }}</div>
+            <div class="stat-label">Pages Read</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ avg_rating or '—' }}</div>
+            <div class="stat-label">Average Rating</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ fav or '—' }}</div>
+            <div class="stat-label">Favorite Genre</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Currently Reading -->
+      <div class="section-container mb-4">
+        <div class="section-title">Currently Reading</div>
+        <div class="watchlist-cards-row">
+          {% for b in currently_reading %}
+          <div class="watchlist-card">
+            <div class="watchlist-card-cover" style="position: relative">
+              {% if b.cover %}
+              <img
+                src="{{ url_for('static', filename=b.cover) }}"
+                alt="{{ b.title }}"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  border-radius: 6px;
+                "
+              />
+              {% else %}
+              <div
+                style="
+                  background: linear-gradient(135deg, #6a82fb, #fc5c7d);
+                  width: 100%;
+                  height: 100%;
+                  border-radius: 6px;
+                "
+              ></div>
+              {% endif %}
+              <div
+                class="watchlist-card-cover-text"
+                style="position: absolute; left: 10px; bottom: 10px"
+              >
+                <span class="watchlist-card-author"
+                  >{{ b.author or 'Unknown' }}</span
+                >
+                <span class="watchlist-card-title">{{ b.title }}</span>
+              </div>
+            </div>
+            <div class="watchlist-card-footer">
+              <div class="watchlist-progress-circle">
+                <span>{{ b.progress }}%</span>
+              </div>
+              <div class="watchlist-card-status text-muted">
+                {{ b.progress }}% read
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">No books marked as 'reading' yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Recent Books Finished -->
+      <div class="section-container">
+        <div class="section-title">Recent Books Finished</div>
+        <div class="covers-row">
+          {% for b in recent_finished %}
+          <div class="cover-thumb">
+            {% if b.cover %}
+            <img
+              src="{{ url_for('static', filename=b.cover) }}"
+              alt="{{ b.title }}"
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 6px;
+              "
+            />
+            {% else %}
+            <div class="cover-thumb-img">{{ b.title[0] }}</div>
+            {% endif %}
+            <div class="cover-thumb-title text-truncate" title="{{ b.title }}">
+              {{ b.title }}
+            </div>
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">Finish a book to see it here.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Bio + Recent Activity -->
+    <div class="col-lg-4">
+      <div class="section-container mb-4">
+        <div class="section-title">Active Log</div>
+        <div class="active-log-content">
+          <div class="online-time-display">
+            <i class="fas fa-clock text-success me-2"></i>
+            <span class="online-time-text">Calculating...</span>
+          </div>
+          <div class="online-stats mt-3">
+            <div class="stat-item">
+              <span class="stat-label">Session Time:</span>
+              <span class="stat-value" id="sessionTime">00:00:00</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Pages Visited:</span>
+              <span class="stat-value" id="pagesVisited">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Last Active:</span>
+              <span class="stat-value" id="lastActive">Just now</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-container">
+        <div class="section-title">Recent Activity</div>
+        <ul class="activity-list">
+          {% for a in recent_activity %}
+          <li class="activity-item">
+            <i class="fas {{ a.icon }}"></i>
+            <div>
+              <div class="activity-text">{{ a.text|safe }}</div>
+              <div class="activity-time text-muted small">{{ a.when }}</div>
+            </div>
+          </li>
+          {% else %}
+          <li class="text-muted small">No activity yet.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="background:#1f1f1f; border:1px solid #333; border-radius:16px;">
+      <div class="modal-header" style="border-bottom:1px solid #333;">
+        <h5 class="modal-title" style="color:#fff; font-weight:800; letter-spacing:.5px;">
+          Account Settings
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form method="post" action="{{ url_for('profile') }}" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="section-container" style="margin-bottom:0;">
+  <div class="section-title">Personal Information</div>
+
+  <!-- Avatar -->
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <div class="avatar-preview">
+      <img
+        src="{{ avatar_url or url_for('static', filename='img/default-avatar.png') }}"
+        alt="Profile photo"
+        id="avatarPreviewImg"
+      />
+    </div>
+
+    <div>
+      <label class="form-label mb-1">Profile Image</label>
+      <input type="file" id="avatarInput" name="avatar" accept="image/*">
+      <small style="opacity:.7;">PNG/JPG recommended. Square image looks best.</small>
+    </div>
+  </div>
+
+  <label class="form-label">Username</label>
+  <input class="form-control" name="username" value="{{ username }}" />
+
+  <div class="mt-3">
+    <label class="form-label">Email</label>
+    <input class="form-control" name="email" value="{{ email or '' }}" />
+  </div>
+
+  <button class="btn btn-neon mt-3 w-100" type="submit">
+    Save Changes
+  </button>
+</div>
+
+            </div>
+
+            <div class="col-lg-6">
+              <div class="section-container" style="margin-bottom:0;">
+                <div class="section-title">Password &amp; Security</div>
+
+                <p class="text-muted small mb-3">For password changes and advanced security settings, visit the <a href="{{ url_for('settings') }}">Settings page</a>.</p>
+
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fas fa-shield-alt text-success"></i>
+                  <span class="text-muted">Account security managed in Settings</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="border-top:1px solid #333;">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+<script>
+// Active Log functionality
+class ActiveLogTracker {
+  constructor() {
+    this.sessionStart = new Date();
+    this.pageVisits = this.getPageVisits();
+    this.lastActive = new Date();
+    this.interval = null;
+    this.init();
+  }
+
+  init() {
+    this.updateDisplay();
+    this.startTracking();
+    this.trackPageVisit();
+
+    // Update last active on user interaction
+    ['mousedown', 'keydown', 'scroll', 'click'].forEach(event => {
+      document.addEventListener(event, () => {
+        this.lastActive = new Date();
+        this.updateLastActive();
+      }, { passive: true });
+    });
+
+    // Track page visibility
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        this.lastActive = new Date();
+        this.updateLastActive();
+      }
+    });
+  }
+
+  startTracking() {
+    this.interval = setInterval(() => {
+      this.updateDisplay();
+    }, 1000);
+  }
+
+  updateDisplay() {
+    const now = new Date();
+    const sessionDuration = now - this.sessionStart;
+
+    // Format session time
+    const sessionTime = this.formatDuration(sessionDuration);
+    document.getElementById('sessionTime').textContent = sessionTime;
+
+    // Update online time text
+    const onlineTimeText = document.querySelector('.online-time-text');
+    if (onlineTimeText) {
+      onlineTimeText.textContent = `Online for ${sessionTime}`;
+    }
+
+    // Update pages visited
+    document.getElementById('pagesVisited').textContent = this.pageVisits;
+  }
+
+  updateLastActive() {
+    const now = new Date();
+    const timeDiff = now - this.lastActive;
+
+    let lastActiveText = 'Just now';
+
+    if (timeDiff < 60000) { // Less than 1 minute
+      lastActiveText = 'Just now';
+    } else if (timeDiff < 3600000) { // Less than 1 hour
+      const minutes = Math.floor(timeDiff / 60000);
+      lastActiveText = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (timeDiff < 86400000) { // Less than 1 day
+      const hours = Math.floor(timeDiff / 3600000);
+      lastActiveText = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else {
+      const days = Math.floor(timeDiff / 86400000);
+      lastActiveText = `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+
+    document.getElementById('lastActive').textContent = lastActiveText;
+  }
+
+  formatDuration(milliseconds) {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  getPageVisits() {
+    // Get or initialize page visit count from sessionStorage
+    let visits = parseInt(sessionStorage.getItem('pageVisits') || '0');
+    visits++;
+    sessionStorage.setItem('pageVisits', visits.toString());
+    return visits;
+  }
+
+  trackPageVisit() {
+    // Track current page visit
+    const currentPage = window.location.pathname;
+    const visitedPages = JSON.parse(sessionStorage.getItem('visitedPages') || '[]');
+
+    if (!visitedPages.includes(currentPage)) {
+      visitedPages.push(currentPage);
+      sessionStorage.setItem('visitedPages', JSON.stringify(visitedPages));
+    }
+  }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  new ActiveLogTracker();
+});
+</script>
+{% endblock %}
